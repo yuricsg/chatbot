@@ -21,21 +21,21 @@ const client = new Client({
 });
 
 // Armazena os nomes dos clientes e o estado da conversa
-const clientStates: { [key: string]: { name?: string; firstMessage: boolean } } = {};
+const clientStates: { [key: string]: { name?: string; firstMessage: boolean; messageCount: number } } = {};
 
 
 client.on("message", async (message) => {
     const chatId = message.from;
 
     if (!clientStates[chatId]) {
-        clientStates[chatId] = { firstMessage: true };
+        clientStates[chatId] = { firstMessage: true, messageCount: 0 };
         await client.sendMessage(chatId, "👋 Olá! Antes de começarmos, como posso te chamar?");
         return;
     }
 
     const userState = clientStates[chatId];
     if (userState.firstMessage && !userState.name) {
-        // Armazena o nome do cliente
+
         userState.name = message.body.trim();
         userState.firstMessage = false;
 
@@ -54,8 +54,8 @@ client.on("ready", () => {
     console.log("✅ Bot está online e pronto para atender os clientes!");
 });
 
-// Função para processar mensagens do usuário
-const getResponse = (userMessage: string, name: string): string => {
+
+const getResponse = (userMessage: string, name: string, messageCount: number): string => {
     if (userMessage.includes("1")) {
         return PRODUCTS_MESSAGE(name);
     } else if (userMessage.includes("2")) {
@@ -72,11 +72,13 @@ const getResponse = (userMessage: string, name: string): string => {
         return LAPTOPS_MESSAGE(name);
     } else if (userMessage.includes("manutenção") || userMessage.includes("suporte técnico")) {
         return SERVICES_MESSAGE(name);
+    } else if (messageCount >= 3) {
+        return UNKNOWN_MESSAGE(name);
     }
-    return UNKNOWN_MESSAGE(name);
+    return `🤔 Ainda não entendi, ${name}. Por favor, tente novamente ou escolha uma das opções disponíveis.`;
 };
 
-// Lida com mensagens recebidas
+
 client.on("message", async (message) => {
     try {
         const chatId = message.from;
@@ -85,7 +87,10 @@ client.on("message", async (message) => {
         const userState = clientStates[chatId];
         if (!userState || !userState.name) return;
 
-        const response = getResponse(userMessage, userState.name);
+        // Incrementa o contador de mensagens
+        userState.messageCount++;
+
+        const response = getResponse(userMessage, userState.name, userState.messageCount);
         await client.sendMessage(chatId, response);
     } catch (error) {
         console.error("❌ Erro ao processar a mensagem:", error);
